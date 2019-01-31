@@ -12,5 +12,10 @@ namespace CloudNative.CloudEvents.Mqtt
         {
             this.Payload = formatter.EncodeStructuredEvent(cloudEvent, out var contentType);
         }
+
+        public MqttCloudEventMessage(CloudEventBatch cloudEvent, ICloudEventFormatter formatter)
+        {
+            this.Payload = formatter.EncodeStructuredEventBatch(cloudEvent, out var contentType);
+        }
     }
 }

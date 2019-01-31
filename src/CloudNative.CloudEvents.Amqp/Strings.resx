@@ -123,40 +123,4 @@
   <data name="ErrorBinaryModeDataEncoding" xml:space="preserve">
     <value>In binary content mode, the data field must either contain a stream, a byte arry, or a string value.</value>
   </data>
-  <data name="ErrorContentTypeIsNotRFC2046" xml:space="preserve">
-    <value>The 'contenttype' attribute value must be a content-type expression compliant with RFC2046</value>
-  </data>
-  <data name="ErrorIdValueIsNotAString" xml:space="preserve">
-    <value>The 'id' attribute value must be a string</value>
-  </data>
-  <data name="ErrorSampledRateValueIsaNotAnInteger" xml:space="preserve">
-    <value>The 'sampledrate' attribute value must be an integer</value>
-  </data>
-  <data name="ErrorSchemaUrlIsNotAUri" xml:space="preserve">
-    <value>The 'schemaurl' attribute value must be a valid absolute or relative URI</value>
-  </data>
-  <data name="ErrorSequenceTypeValueIsaNotAString" xml:space="preserve">
-    <value>The 'sequencetype' attribute value must be an integer</value>
-  </data>
-  <data name="ErrorSequenceValueIsaNotAString" xml:space="preserve">
-    <value>The 'sequence' attribute value must be an integer</value>
-  </data>
-  <data name="ErrorSourceValueIsNotAUri" xml:space="preserve">
-    <value>The 'source' attribute value must be a valid absolute or relative URI</value>
-  </data>
-  <data name="ErrorSpecVersionValueIsNotAString" xml:space="preserve">
-    <value>The 'specversion' attribute value must be a string</value>
-  </data>
-  <data name="ErrorTimeValueIsNotATimestamp" xml:space="preserve">
-    <value>The 'time' attribute value must be a valid ISO8601 timestamp expression</value>
-  </data>
-  <data name="ErrorTraceParentValueIsaNotAString" xml:space="preserve">
-    <value>The 'traceparent' attribute value is required with the distributed tracing extension and must be a string</value>
-  </data>
-  <data name="ErrorTraceStateValueIsaNotAString" xml:space="preserve">
-    <value>The 'tracestate' attribute value must be a string</value>
-  </data>
-  <data name="ErrorTypeValueIsNotAString" xml:space="preserve">
-    <value>The 'type' attribute value must be a string</value>
-  </data>
 </root>

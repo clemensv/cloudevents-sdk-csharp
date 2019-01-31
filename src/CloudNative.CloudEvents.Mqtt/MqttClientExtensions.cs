@@ -14,5 +14,11 @@ namespace CloudNative.CloudEvents.Mqtt
         {
             return eventFormatter.DecodeStructuredEvent(message.Payload, extensions);
         }
+
+        public static CloudEventBatch ToCloudEventBatch(this MqttApplicationMessage message,
+            ICloudEventFormatter eventFormatter, params ICloudEventExtension[] extensions)
+        {
+            return eventFormatter.DecodeStructuredEventBatch(message.Payload, extensions);
+        }
     }
 }

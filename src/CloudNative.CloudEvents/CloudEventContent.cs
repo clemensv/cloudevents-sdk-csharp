@@ -18,7 +18,7 @@ namespace CloudNative.CloudEvents
     /// </summary>
     public class CloudEventContent : HttpContent
     {
-        IInnerContent inner;                      
+        IInnerContent inner;
         static JsonEventFormatter jsonFormatter = new JsonEventFormatter();
 
         /// <summary>
@@ -57,6 +57,18 @@ namespace CloudNative.CloudEvents
 
             Headers.ContentType = new MediaTypeHeaderValue(cloudEvent.ContentType?.MediaType);
             MapHeaders(cloudEvent);
+        }
+
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="cloudEventBatch">CloudEventBatch</param>
+        /// <param name="contentMode">Content mode. Structured or binary.</param>
+        /// <param name="formatter">Event formatter</param>
+        public CloudEventContent(CloudEventBatch cloudEventBatch, ICloudEventFormatter formatter)
+        {
+            inner = new InnerByteArrayContent(formatter.EncodeStructuredEventBatch(cloudEventBatch, out var contentType));
+            Headers.ContentType = new MediaTypeHeaderValue(contentType.MediaType);
         }
 
         interface IInnerContent

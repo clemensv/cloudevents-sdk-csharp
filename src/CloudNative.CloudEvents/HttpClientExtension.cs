@@ -77,6 +77,38 @@ namespace CloudNative.CloudEvents
             await stream.CopyToAsync(httpWebRequest.GetRequestStream());
         }
 
+
+        /// <summary>
+        /// Copies the CloudEvent into this HttpListenerResponse instance
+        /// </summary>
+        /// <param name="httpListenerResponse">this</param>
+        /// <param name="cloudEventBatch">CloudEvent to copy</param>
+        /// <param name="contentMode">Content mode (structured or binary)</param>
+        /// <param name="formatter">Formatter</param>
+        /// <returns>Task</returns>
+        public static Task CopyFromAsync(this HttpListenerResponse httpListenerResponse, CloudEventBatch cloudEventBatch, ICloudEventFormatter formatter)
+        {
+            var buffer = formatter.EncodeStructuredEventBatch(cloudEventBatch, out var contentType);
+            httpListenerResponse.ContentType = contentType.ToString();
+            return httpListenerResponse.OutputStream.WriteAsync(buffer, 0, buffer.Length);
+
+        }
+
+        /// <summary>
+        /// Copies the CloudEvent into this HttpWebRequest instance
+        /// </summary>
+        /// <param name="httpWebRequest">this</param>
+        /// <param name="cloudEventBatch">CloudEvent to copy</param>
+        /// <param name="contentMode">Content mode (structured or binary)</param>
+        /// <param name="formatter">Formatter</param>
+        /// <returns>Task</returns>
+        public static async Task CopyFromAsync(this HttpWebRequest httpWebRequest, CloudEventBatch cloudEventBatch, ICloudEventFormatter formatter)
+        {
+            var buffer = formatter.EncodeStructuredEventBatch(cloudEventBatch, out var contentType);
+            httpWebRequest.ContentType = contentType.ToString();
+            await (httpWebRequest.GetRequestStream()).WriteAsync(buffer, 0, buffer.Length);
+        }
+
         /// <summary>
         /// Handle the request as WebHook validation request
         /// </summary>
@@ -206,7 +238,7 @@ namespace CloudNative.CloudEvents
         public static bool IsCloudEvent(this HttpResponseMessage httpResponseMessage)
         {
             return (httpResponseMessage.Content != null && httpResponseMessage.Content.Headers.ContentType != null &&
-                    httpResponseMessage.Content.Headers.ContentType.MediaType.StartsWith(CloudEvent.MediaType)) ||
+                    httpResponseMessage.Content.Headers.ContentType.MediaType.Equals(CloudEvent.MediaType, StringComparison.InvariantCultureIgnoreCase)) ||
                    httpResponseMessage.Headers.Contains(SpecVersionHttpHeader1) ||
                    httpResponseMessage.Headers.Contains(SpecVersionHttpHeader2);
         }
@@ -216,8 +248,40 @@ namespace CloudNative.CloudEvents
         /// </summary>
         public static bool IsCloudEvent(this HttpListenerRequest httpListenerRequest)
         {
-            return (httpListenerRequest.Headers["content-type"] != null &&
-                    httpListenerRequest.Headers["content-type"].StartsWith(CloudEvent.MediaType)) ||
+            if (httpListenerRequest.Headers["content-type"] == null)
+            {
+                return false;
+            }
+            var contentType = new ContentType(httpListenerRequest.Headers["content-type"]);
+            return (contentType.MediaType.Equals(CloudEvent.MediaType, StringComparison.InvariantCultureIgnoreCase)) ||
+                   httpListenerRequest.Headers[SpecVersionHttpHeader1] != null ||
+                   httpListenerRequest.Headers[SpecVersionHttpHeader2] != null;
+        }
+
+        /// <summary>
+        /// Indicates whether this HttpResponseMessage holds a CloudEvent
+        /// </summary>
+        /// <param name="httpResponseMessage"></param>
+        /// <returns>true, if the response is a CloudEvent</returns>
+        public static bool IsCloudEventBatch(this HttpResponseMessage httpResponseMessage)
+        {
+            return (httpResponseMessage.Content != null && httpResponseMessage.Content.Headers.ContentType != null &&
+                    httpResponseMessage.Content.Headers.ContentType.MediaType.StartsWith(CloudEventBatch.MediaType + "+", StringComparison.InvariantCultureIgnoreCase)) ||
+                   httpResponseMessage.Headers.Contains(SpecVersionHttpHeader1) ||
+                   httpResponseMessage.Headers.Contains(SpecVersionHttpHeader2);
+        }
+
+        /// <summary>
+        /// Indicates whether this HttpListenerRequest holds a CloudEvent
+        /// </summary>
+        public static bool IsCloudEventBatch(this HttpListenerRequest httpListenerRequest)
+        {
+            if (httpListenerRequest.Headers["content-type"] == null)
+            {
+                return false;
+            }
+            var contentType = new ContentType(httpListenerRequest.Headers["content-type"]);
+            return (contentType.MediaType.Equals(CloudEventBatch.MediaType, StringComparison.InvariantCultureIgnoreCase)) ||
                    httpListenerRequest.Headers[SpecVersionHttpHeader1] != null ||
                    httpListenerRequest.Headers[SpecVersionHttpHeader2] != null;
         }
@@ -291,7 +355,7 @@ namespace CloudNative.CloudEvents
             params ICloudEventExtension[] extensions)
         {
             if (httpListenerRequest.ContentType != null &&
-                httpListenerRequest.ContentType.StartsWith(CloudEvent.MediaType,
+                httpListenerRequest.ContentType.StartsWith(CloudEvent.MediaType + "+",
                     StringComparison.InvariantCultureIgnoreCase))
             {
                 // handle structured mode
@@ -367,23 +431,23 @@ namespace CloudNative.CloudEvents
         /// Converts this listener request into a CloudEvent object, with the given extensions,
         /// overriding the formatter.
         /// </summary>
-        /// <param name="httpListenerRequest">Listener request</param>
+        /// <param name="httpRequestMessage">Listener request</param>
         /// <param name="formatter"></param>
         /// <param name="extensions">List of extension instances</param>
         /// <returns>A CloudEvent instance or 'null' if the response message doesn't hold a CloudEvent</returns>
-        public static CloudEvent ToCloudEvent(this HttpRequestMessage httpListenerRequest,
+        public static CloudEvent ToCloudEvent(this HttpRequestMessage httpRequestMessage,
             ICloudEventFormatter formatter = null,
             params ICloudEventExtension[] extensions)
         {
-            if (httpListenerRequest.Content != null && httpListenerRequest.Content.Headers.ContentType != null &&
-                httpListenerRequest.Content.Headers.ContentType.MediaType.StartsWith(CloudEvent.MediaType,
+            if (httpRequestMessage.Content != null && httpRequestMessage.Content.Headers.ContentType != null &&
+                httpRequestMessage.Content.Headers.ContentType.MediaType.StartsWith(CloudEvent.MediaType + "+",
                     StringComparison.InvariantCultureIgnoreCase))
             {
                 // handle structured mode
                 if (formatter == null)
                 {
                     // if we didn't get a formatter, pick one
-                    if (httpListenerRequest.Content.Headers.ContentType.MediaType.EndsWith(
+                    if (httpRequestMessage.Content.Headers.ContentType.MediaType.EndsWith(
                         JsonEventFormatter.MediaTypeSuffix,
                         StringComparison.InvariantCultureIgnoreCase))
                     {
@@ -396,26 +460,26 @@ namespace CloudNative.CloudEvents
                 }
 
                 return formatter.DecodeStructuredEvent(
-                    httpListenerRequest.Content.ReadAsStreamAsync().GetAwaiter().GetResult(), extensions);
+                    httpRequestMessage.Content.ReadAsStreamAsync().GetAwaiter().GetResult(), extensions);
             }
             else
             {
                 CloudEventsSpecVersion version = CloudEventsSpecVersion.Default;
-                if (httpListenerRequest.Headers.Contains(SpecVersionHttpHeader1))
+                if (httpRequestMessage.Headers.Contains(SpecVersionHttpHeader1))
                 {
                     version = CloudEventsSpecVersion.V0_1;
                 }
 
-                if (httpListenerRequest.Headers.Contains(SpecVersionHttpHeader2))
+                if (httpRequestMessage.Headers.Contains(SpecVersionHttpHeader2))
                 {
-                    version = httpListenerRequest.Headers.GetValues(SpecVersionHttpHeader2).First() == "0.2"
+                    version = httpRequestMessage.Headers.GetValues(SpecVersionHttpHeader2).First() == "0.2"
                         ? CloudEventsSpecVersion.V0_2
                         : CloudEventsSpecVersion.Default;
                 }
 
                 var cloudEvent = new CloudEvent(version, extensions);
                 var attributes = cloudEvent.GetAttributes();
-                foreach (var httpRequestHeaders in httpListenerRequest.Headers)
+                foreach (var httpRequestHeaders in httpRequestMessage.Headers)
                 {
                     if (httpRequestHeaders.Key.Equals(SpecVersionHttpHeader1,
                             StringComparison.InvariantCultureIgnoreCase) ||
@@ -428,7 +492,7 @@ namespace CloudNative.CloudEvents
                     if (httpRequestHeaders.Key.StartsWith(HttpHeaderPrefix,
                         StringComparison.InvariantCultureIgnoreCase))
                     {
-                        string headerValue = httpListenerRequest.Headers.GetValues(httpRequestHeaders.Key).First();
+                        string headerValue = httpRequestMessage.Headers.GetValues(httpRequestHeaders.Key).First();
                         if (headerValue.StartsWith("{") && headerValue.EndsWith("}") ||
                             headerValue.StartsWith("[") && headerValue.EndsWith("]"))
                         {
@@ -443,12 +507,125 @@ namespace CloudNative.CloudEvents
                     }
                 }
 
-                cloudEvent.ContentType = httpListenerRequest.Content?.Headers.ContentType != null
-                    ? new ContentType(httpListenerRequest.Content.Headers.ContentType.MediaType)
+                cloudEvent.ContentType = httpRequestMessage.Content?.Headers.ContentType != null
+                    ? new ContentType(httpRequestMessage.Content.Headers.ContentType.MediaType)
                     : null;
-                cloudEvent.Data = httpListenerRequest.Content?.ReadAsStreamAsync().GetAwaiter().GetResult();
+                cloudEvent.Data = httpRequestMessage.Content?.ReadAsStreamAsync().GetAwaiter().GetResult();
                 return cloudEvent;
             }
+        }
+
+        /// <summary>
+        /// Converts this response message into a CloudEvent object, with the given extensions.
+        /// </summary>
+        /// <param name="httpResponseMessage">Response message</param>
+        /// <param name="extensions">List of extension instances</param>
+        /// <returns>A CloudEvent instance or 'null' if the response message doesn't hold a CloudEvent</returns>
+        public static CloudEventBatch ToCloudEventBatch(this HttpResponseMessage httpResponseMessage,
+            params ICloudEventExtension[] extensions)
+        {
+            return ToCloudEventBatchInternal(httpResponseMessage, null, extensions);
+        }
+
+        /// <summary>
+        /// Converts this response message into a CloudEvent object, with the given extensions and
+        /// overriding the default formatter.
+        /// </summary>
+        /// <param name="httpResponseMessage">Response message</param>
+        /// <param name="formatter"></param>
+        /// <param name="extensions">List of extension instances</param>
+        /// <returns>A CloudEvent instance or 'null' if the response message doesn't hold a CloudEvent</returns>
+        public static CloudEventBatch ToCloudEventBatch(this HttpResponseMessage httpResponseMessage,
+            ICloudEventFormatter formatter, params ICloudEventExtension[] extensions)
+        {
+            return ToCloudEventBatchInternal(httpResponseMessage, formatter, extensions);
+        }
+
+        /// <summary>
+        /// Converts this listener request into a CloudEvent object, with the given extensions.
+        /// </summary>
+        /// <param name="httpListenerRequest">Listener request</param>
+        /// <param name="extensions">List of extension instances</param>
+        /// <returns>A CloudEvent instance or 'null' if the response message doesn't hold a CloudEvent</returns>
+        public static CloudEventBatch ToCloudEventBatch(this HttpListenerRequest httpListenerRequest,
+            params ICloudEventExtension[] extensions)
+        {
+            return ToCloudEventBatch(httpListenerRequest, null, extensions);
+        }
+
+        /// <summary>
+        /// Converts this listener request into a CloudEvent object, with the given extensions,
+        /// overriding the formatter.
+        /// </summary>
+        /// <param name="httpListenerRequest">Listener request</param>
+        /// <param name="formatter"></param>
+        /// <param name="extensions">List of extension instances</param>
+        /// <returns>A CloudEvent instance or 'null' if the response message doesn't hold a CloudEvent</returns>
+        public static CloudEventBatch ToCloudEventBatch(this HttpListenerRequest httpListenerRequest,
+            ICloudEventFormatter formatter = null,
+            params ICloudEventExtension[] extensions)
+        {
+            if (httpListenerRequest.ContentType != null &&
+                httpListenerRequest.ContentType.StartsWith(CloudEventBatch.MediaType + "+",
+                    StringComparison.InvariantCultureIgnoreCase))
+            {
+                // handle structured mode
+                if (formatter == null)
+                {
+                    // if we didn't get a formatter, pick one
+                    if (httpListenerRequest.ContentType.EndsWith(JsonEventFormatter.MediaTypeSuffix,
+                        StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        formatter = jsonFormatter;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Unsupported CloudEvents encoding");
+                    }
+                }
+                return formatter.DecodeStructuredEventBatch(httpListenerRequest.InputStream, extensions);
+            }
+            throw new ArgumentException(Strings.ErrorBatchBinaryMode, nameof(httpListenerRequest));
+        }
+
+
+        /// <summary>
+        /// Converts this listener request into a CloudEvent object, with the given extensions,
+        /// overriding the formatter.
+        /// </summary>
+        /// <param name="httpRequestMessage">Listener request</param>
+        /// <param name="formatter"></param>
+        /// <param name="extensions">List of extension instances</param>
+        /// <returns>A CloudEvent instance or 'null' if the response message doesn't hold a CloudEvent</returns>
+        public static CloudEvent ToCloudEventBatch(this HttpRequestMessage httpRequestMessage,
+            ICloudEventFormatter formatter = null,
+            params ICloudEventExtension[] extensions)
+        {
+            if (httpRequestMessage.Content != null && httpRequestMessage.Content.Headers.ContentType != null &&
+                httpRequestMessage.Content.Headers.ContentType.MediaType.StartsWith(CloudEventBatch.MediaType + "+",
+                    StringComparison.InvariantCultureIgnoreCase))
+            {
+                // handle structured mode
+                if (formatter == null)
+                {
+                    // if we didn't get a formatter, pick one
+                    if (httpRequestMessage.Content.Headers.ContentType.MediaType.EndsWith(
+                        JsonEventFormatter.MediaTypeSuffix,
+                        StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        formatter = jsonFormatter;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Unsupported CloudEvents encoding");
+                    }
+                }
+
+                return formatter.DecodeStructuredEvent(
+                    httpRequestMessage.Content.ReadAsStreamAsync().GetAwaiter().GetResult(), extensions);
+            }
+            throw new ArgumentException(Strings.ErrorBatchBinaryMode, nameof(httpRequestMessage));
+
         }
 
         static void MapAttributesToListenerResponse(CloudEvent cloudEvent, HttpListenerResponse httpListenerResponse)
@@ -544,7 +721,7 @@ namespace CloudNative.CloudEvents
             ICloudEventFormatter formatter, ICloudEventExtension[] extensions)
         {
             if (httpResponseMessage.Content?.Headers.ContentType != null &&
-                httpResponseMessage.Content.Headers.ContentType.MediaType.StartsWith("application/cloudevents",
+                httpResponseMessage.Content.Headers.ContentType.MediaType.StartsWith(CloudEvent.MediaType + "+",
                     StringComparison.InvariantCultureIgnoreCase))
             {
                 // handle structured mode
@@ -620,6 +797,35 @@ namespace CloudNative.CloudEvents
                 cloudEvent.Data = httpResponseMessage.Content?.ReadAsStreamAsync().GetAwaiter().GetResult();
                 return cloudEvent;
             }
+        }
+
+        static CloudEventBatch ToCloudEventBatchInternal(HttpResponseMessage httpResponseMessage,
+           ICloudEventFormatter formatter, ICloudEventExtension[] extensions)
+        {
+            if (httpResponseMessage.Content?.Headers.ContentType != null &&
+                httpResponseMessage.Content.Headers.ContentType.MediaType.StartsWith(CloudEventBatch.MediaType + "+",
+                    StringComparison.InvariantCultureIgnoreCase))
+            {
+                // handle structured mode
+                if (formatter == null)
+                {
+                    // if we didn't get a formatter, pick one
+                    if (httpResponseMessage.Content.Headers.ContentType.MediaType.EndsWith("+json",
+                        StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        formatter = jsonFormatter;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Unsupported CloudEvents encoding");
+                    }
+                }
+
+                return formatter.DecodeStructuredEventBatch(
+                    httpResponseMessage.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult(),
+                    extensions);
+            }
+            throw new ArgumentException(Strings.ErrorBatchBinaryMode, nameof(httpResponseMessage));
         }
     }
 }

@@ -18,7 +18,7 @@ namespace CloudNative.CloudEvents.Amqp
             if (contentMode == ContentMode.Structured)
             {
                 this.BodySection = new Data
-                    { Binary = formatter.EncodeStructuredEvent(cloudEvent, out var contentType) };
+                { Binary = formatter.EncodeStructuredEvent(cloudEvent, out var contentType) };
                 this.Properties = new Properties() { ContentType = contentType.MediaType };
                 this.ApplicationProperties = new ApplicationProperties();
                 MapHeaders(cloudEvent);
@@ -46,10 +46,24 @@ namespace CloudNative.CloudEvents.Amqp
             {
                 this.BodySection = new AmqpValue() { Value = cloudEvent.Data };
             }
+            else
+            {
+                throw new ArgumentException(Strings.ErrorBinaryModeDataEncoding, nameof(cloudEvent));
+            }
 
             this.Properties = new Properties() { ContentType = cloudEvent.ContentType?.MediaType };
             this.ApplicationProperties = new ApplicationProperties();
             MapHeaders(cloudEvent);
+        }
+
+        public AmqpCloudEventMessage(CloudEventBatch cloudEvent, ICloudEventFormatter formatter)
+        {
+            this.BodySection = new Data
+            {
+                Binary = formatter.EncodeStructuredEventBatch(cloudEvent, out var contentType)
+            };
+            this.Properties = new Properties() { ContentType = contentType.MediaType };
+            this.ApplicationProperties = new ApplicationProperties();
         }
 
         void MapHeaders(CloudEvent cloudEvent)

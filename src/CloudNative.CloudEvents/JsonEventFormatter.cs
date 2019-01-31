@@ -100,7 +100,7 @@ namespace CloudNative.CloudEvents
 
         public byte[] EncodeStructuredEvent(CloudEvent cloudEvent, out ContentType contentType)
         {
-            contentType = new ContentType("application/cloudevents+json")
+            contentType = new ContentType(CloudEvent.MediaType + "+json")
             {
                 CharSet = Encoding.UTF8.WebName
             };
@@ -120,6 +120,59 @@ namespace CloudNative.CloudEvents
             }
 
             return Encoding.UTF8.GetBytes(jObject.ToString());
+        }
+
+        public CloudEventBatch DecodeStructuredEventBatch(Stream data, IEnumerable<ICloudEventExtension> extensions)
+        {
+            var batch = new CloudEventBatch();
+            var jsonReader = new JsonTextReader(new StreamReader(data, Encoding.UTF8, true, 8192, true));
+            var jArray = JArray.Load(jsonReader);
+            foreach (var element in jArray)
+            {
+                batch.Add(DecodeJObject(element as JObject, extensions));
+            }                                                            
+            return batch;
+        }
+
+        public CloudEventBatch DecodeStructuredEventBatch(byte[] data, IEnumerable<ICloudEventExtension> extensions)
+        {
+            var batch = new CloudEventBatch();
+            var jsonText = Encoding.UTF8.GetString(data);
+            var jArray = JArray.Parse(jsonText);
+            foreach (var element in jArray)
+            {
+                batch.Add(DecodeJObject(element as JObject, extensions));
+            }
+            return batch;
+        }
+
+        public byte[] EncodeStructuredEventBatch(CloudEventBatch cloudEventBatch, out ContentType contentType)
+        {
+            contentType = new ContentType(CloudEventBatch.MediaType + "+json")
+            {
+                CharSet = Encoding.UTF8.WebName
+            };
+
+            JArray jArray = new JArray();
+            foreach (var cloudEvent in cloudEventBatch)
+            {
+                JObject jObject = new JObject();
+                var attributes = cloudEvent.GetAttributes();
+                foreach (var keyValuePair in attributes)
+                {
+                    if (keyValuePair.Value is ContentType)
+                    {
+                        jObject[keyValuePair.Key] = JToken.FromObject(((ContentType)keyValuePair.Value).ToString());
+                    }
+                    else
+                    {
+                        jObject[keyValuePair.Key] = JToken.FromObject(keyValuePair.Value);
+                    }
+                }
+                jArray.Add(jObject);
+            }
+
+            return Encoding.UTF8.GetBytes(jArray.ToString());
         }
 
         public object DecodeAttribute(CloudEventsSpecVersion specVersion, string name, byte[] data, IEnumerable<ICloudEventExtension> extensions = null)

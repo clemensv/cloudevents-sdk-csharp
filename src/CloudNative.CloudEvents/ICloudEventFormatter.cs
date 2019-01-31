@@ -35,7 +35,29 @@ namespace CloudNative.CloudEvents
         /// <param name="contentType"></param>
         /// <returns></returns>
         byte[] EncodeStructuredEvent(CloudEvent cloudEvent, out ContentType contentType);
-      
+
+        /// <summary>
+        /// Decode a structured event from a stream
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="extensions"></param>
+        /// <returns></returns>
+        CloudEventBatch DecodeStructuredEventBatch(Stream data, IEnumerable<ICloudEventExtension> extensions);
+        /// <summary>
+        /// Decode a structured event from a byte array
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="extensions"></param>
+        /// <returns></returns>
+        CloudEventBatch DecodeStructuredEventBatch(byte[] data, IEnumerable<ICloudEventExtension> extensions);
+        /// <summary>
+        /// Encode an structured event into a byte array
+        /// </summary>
+        /// <param name="cloudEvent"></param>
+        /// <param name="contentType"></param>
+        /// <returns></returns>
+        byte[] EncodeStructuredEventBatch(CloudEventBatch cloudEvent, out ContentType contentType);
+
         /// <summary>
         /// Decode an attribute from a byte array
         /// </summary>

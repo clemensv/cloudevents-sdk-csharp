@@ -61,6 +61,24 @@ namespace CloudNative.CloudEvents {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Input message is not a structured CloudEvents batch.
+        /// </summary>
+        internal static string ErrorBatchBinaryMode {
+            get {
+                return ResourceManager.GetString("ErrorBatchBinaryMode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to In binary content mode, the data field must either contain a stream, a byte arry, or a string value..
+        /// </summary>
+        internal static string ErrorBinaryModeDataEncoding {
+            get {
+                return ResourceManager.GetString("ErrorBinaryModeDataEncoding", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;contenttype&apos; attribute value must be a content-type expression compliant with RFC2046.
         /// </summary>
         internal static string ErrorContentTypeIsNotRFC2046 {

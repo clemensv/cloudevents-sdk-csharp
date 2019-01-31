@@ -25,10 +25,19 @@ namespace CloudNative.CloudEvents.Amqp
         public static bool IsCloudEvent(this Message message)
         {
             return ((message.Properties.ContentType != null &&
-                     message.Properties.ContentType.ToString().StartsWith(CloudEvent.MediaType)) ||
+                     message.Properties.ContentType.ToString().StartsWith(CloudEvent.MediaType + "+")) ||
                     message.ApplicationProperties.Map.ContainsKey(SpecVersionAmqpHeader1) ||
                     message.ApplicationProperties.Map.ContainsKey(SpecVersionAmqpHeader2));
         }
+
+        public static bool IsCloudEventBatch(this Message message)
+        {
+            return ((message.Properties.ContentType != null &&
+                     message.Properties.ContentType.ToString().StartsWith(CloudEventBatch.MediaType + "+")) ||
+                    message.ApplicationProperties.Map.ContainsKey(SpecVersionAmqpHeader1) ||
+                    message.ApplicationProperties.Map.ContainsKey(SpecVersionAmqpHeader2));
+        }
+
 
         public static CloudEvent ToCloudEvent(this Message message,
             params ICloudEventExtension[] extensions)
@@ -36,6 +45,7 @@ namespace CloudNative.CloudEvents.Amqp
             return ToCloudEvent(message, null, extensions);
         }
 
+        
         public static CloudEvent ToCloudEvent(this Message message,
             ICloudEventFormatter formatter = null,
             params ICloudEventExtension[] extensions)
@@ -101,6 +111,44 @@ namespace CloudNative.CloudEvents.Amqp
                     : null;
                 cloudEvent.Data = message.Body;
                 return cloudEvent;
+            }
+        }
+
+        public static CloudEventBatch ToCloudEventBatch(this Message message,
+            params ICloudEventExtension[] extensions)
+        {
+            return ToCloudEventBatch(message, null, extensions);
+        }
+
+
+        public static CloudEventBatch ToCloudEventBatch(this Message message,
+            ICloudEventFormatter formatter = null,
+            params ICloudEventExtension[] extensions)
+        {
+            string contentType = message.Properties.ContentType?.ToString();
+            if (contentType != null &&
+                contentType.StartsWith(CloudEventBatch.MediaType + "+", StringComparison.InvariantCultureIgnoreCase))
+            {
+                // handle structured mode
+                if (formatter == null)
+                {
+                    // if we didn't get a formatter, pick one
+                    if (contentType.EndsWith(JsonEventFormatter.MediaTypeSuffix,
+                        StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        formatter = jsonFormatter;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Unsupported CloudEvents encoding");
+                    }
+                }
+
+                return formatter.DecodeStructuredEventBatch(new MemoryStream((byte[])message.Body), extensions);
+            }
+            else
+            {
+                throw new ArgumentException(Strings.ErrorBatchBinaryMode, nameof(message));
             }
         }
     }
