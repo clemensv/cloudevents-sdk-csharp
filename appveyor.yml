@@ -10,7 +10,11 @@ init:
   # Good practise, because Windows line endings are different from Unix/Linux ones
   - cmd: git config --global core.autocrlf true
 install:
-  # Install repo specific stuff here
+install:
+  - appveyor DownloadFile https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+  - appveyor DownloadFile https://github.com/nats-io/nats-server/releases/download/v2.1.2/nats-server-v2.1.2-windows-386.zip
+  - 7z e nats-server-v2.1.2-windows-386.zip gnatsd.exe -r -oc:\projects\csharp-nats\build
+  - cmd: set PATH=%PATH%;C:\projects\csharp-nats\build
 dotnet_csproj:
   patch: true
   file: '**\*.csproj'

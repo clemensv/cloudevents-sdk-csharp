@@ -10,6 +10,7 @@
     <PackageReference Include="Microsoft.CSharp" Version="4.5.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.8.0" />
     <PackageReference Include="MQTTnet" Version="2.8.4" />
+    <PackageReference Include="NATS.Client" Version="0.10.0" />
     <PackageReference Include="xunit" Version="2.3.1" />
     <PackageReference Include="xunit.runner.console" Version="2.4.1">
       <PrivateAssets>all</PrivateAssets>
@@ -23,6 +24,7 @@
     <ProjectReference Include="..\..\src\CloudNative.CloudEvents.Avro\CloudNative.CloudEvents.Avro.csproj" />
     <ProjectReference Include="..\..\src\CloudNative.CloudEvents.Kafka\CloudNative.CloudEvents.Kafka.csproj" />
     <ProjectReference Include="..\..\src\CloudNative.CloudEvents.Mqtt\CloudNative.CloudEvents.Mqtt.csproj" />
+    <ProjectReference Include="..\..\src\CloudNative.CloudEvents.Nats\CloudNative.CloudEvents.NATS.csproj" />
     <ProjectReference Include="..\..\src\CloudNative.CloudEvents\CloudNative.CloudEvents.csproj" />
   </ItemGroup>
 
